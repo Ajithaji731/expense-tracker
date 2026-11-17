@@ -32,6 +32,7 @@ const EXPENSE_GAS_URL = "https://script.google.com/macros/s/AKfycbyT64Ehwsk_hev8
 let monthlyCompareChart = null;
 let categoryCompareChart = null;
 let categoryDonutChart = null;
+let dailyTrendChart = null;
 
 // --- DOM References ---
 const monthSelect = document.getElementById("monthSelect");
@@ -182,10 +183,9 @@ function renderApp() {
   
   if (currentTab === "dailyView") {
     renderDailyBreakdown();
+    renderDailyTrendChart();
   } else if (currentTab === "compareView") {
-    renderMonthlyComparison();
-  } else if (currentTab === "analyticsView") {
-    renderAnalytics();
+    renderMonthlyExpenses();
   }
 
   lucide.createIcons();
@@ -297,13 +297,20 @@ function renderDailyBreakdown() {
   if (filtered.length === 0) {
     dailyContainer.innerHTML = `
       <div class="empty-box">
-        <div class="empty-icon">🍵</div>
-        <h3>No expenses yet</h3>
-        <p>Type <em>"spent 200 today"</em> or tap <em>+100</em> above to log your spendings.</p>
+        <div class="empty-icon">☕</div>
+        <h3>No expenses yet for ${formatMonthReadable(selectedMonth)}</h3>
+        <p>Type <em>"Nov 1 : 250 spent"</em> or <em>"spent 200 today"</em> above to start tracking.</p>
       </div>
     `;
     return;
   }
+
+  // Calculate daily totals for side-graph scaling
+  const dailyTotals = {};
+  filtered.forEach(item => {
+    dailyTotals[item.date] = (dailyTotals[item.date] || 0) + Number(item.amount);
+  });
+  const maxDaySpend = Math.max(...Object.values(dailyTotals), 1);
 
   // Group by Date
   const groupedByDate = {};
@@ -319,7 +326,8 @@ function renderDailyBreakdown() {
 
   Object.keys(groupedByDate).forEach(dateStr => {
     const dayItems = groupedByDate[dateStr];
-    const dayTotal = dayItems.reduce((sum, i) => sum + (Number(i.amount) || 0), 0);
+    const dayTotal = dailyTotals[dateStr] || 0;
+    const percent = Math.min(Math.max(Math.round((dayTotal / maxDaySpend) * 100), 6), 100);
 
     const isToday = dateStr === todayStr;
     const isYesterday = dateStr === yesterdayStr;
@@ -327,9 +335,13 @@ function renderDailyBreakdown() {
     let badgeText = "";
     if (isToday) badgeText = `<span class="day-tag-badge today">Today</span>`;
     else if (isYesterday) badgeText = `<span class="day-tag-badge">Yesterday</span>`;
+    else badgeText = `<span class="day-weekday-text">${formatWeekday(dateStr)}</span>`;
+
+    const dayLabel = formatDayReadable(dateStr); // e.g. "Nov 1"
 
     const dayCard = document.createElement("div");
     dayCard.className = "day-card";
+    dayCard.id = `day-${dateStr}`;
 
     let itemsHtml = dayItems.map(item => {
       const catInfo = CATEGORIES[item.category] || CATEGORIES["Other"];
@@ -367,14 +379,22 @@ function renderDailyBreakdown() {
 
     dayCard.innerHTML = `
       <div class="day-header">
-        <div class="day-title-box">
+        <div class="day-left-meta">
+          <span class="day-label-text">${dayLabel}</span>
           ${badgeText}
-          <span class="day-title-text">${formatFullDate(dateStr)}</span>
         </div>
-        <div class="day-sum-badge">
-          Day Total: ₹${dayTotal.toLocaleString('en-IN')}
+        
+        <!-- Side Graph Bar -->
+        <div class="day-side-graph-container" title="Day total: ₹${dayTotal}">
+          <div class="day-side-bar-fill" style="width: ${percent}%;"></div>
+        </div>
+
+        <div class="day-right-badge">
+          <span class="day-spend-val">₹${dayTotal.toLocaleString('en-IN')}</span>
+          <span class="day-spent-text">spent</span>
         </div>
       </div>
+      
       <div class="day-items-group">
         ${itemsHtml}
       </div>
@@ -384,220 +404,247 @@ function renderDailyBreakdown() {
   });
 }
 
-// --- Monthly Comparison View ---
-function renderMonthlyComparison() {
-  const months = getAvailableMonths().slice().reverse(); // Chronological order
-  const monthSummaries = [];
+// --- Daily Spending Trend Chart ---
+function renderDailyTrendChart() {
+  const elChart = document.getElementById("dailyTrendChart");
+  const elCard = document.getElementById("dailyChartSection");
+  if (!elChart || !elCard) return;
 
-  months.forEach(m => {
+  const monthExpenses = expenses.filter(e => (e.month === selectedMonth) || (e.date && e.date.substring(0, 7) === selectedMonth));
+  
+  const monthLabelEl = document.getElementById("dailyChartMonthLabel");
+  if (monthLabelEl) monthLabelEl.textContent = `${formatMonthReadable(selectedMonth)} Daily Trend`;
+
+  // Get number of days in selectedMonth
+  const [yStr, mStr] = (selectedMonth && selectedMonth.includes('-')) ? selectedMonth.split('-') : ["2026", "11"];
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  const daysInMonth = new Date(year, month, 0).getDate();
+
+  const labels = [];
+  const data = [];
+  let peak = 0;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayStr = String(d).padStart(2, '0');
+    const dateKey = `${selectedMonth}-${dayStr}`;
+    const daySum = monthExpenses.filter(e => e.date === dateKey).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    labels.push(String(d));
+    data.push(daySum);
+    if (daySum > peak) peak = daySum;
+  }
+
+  const peakTag = document.getElementById("dailyChartPeakTag");
+  if (peakTag) peakTag.textContent = peak > 0 ? `Peak: ₹${peak.toLocaleString('en-IN')}` : `Daily Spend`;
+
+  if (dailyTrendChart) dailyTrendChart.destroy();
+
+  const ctx = elChart.getContext("2d");
+  dailyTrendChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Spent (₹)",
+        data: data,
+        backgroundColor: "rgba(99, 102, 241, 0.7)",
+        hoverBackgroundColor: "#818cf8",
+        borderRadius: 4,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (items) => `${formatMonthReadable(selectedMonth).split(' ')[0]} ${items[0].label}`,
+            label: (ctx) => `Spent: ₹${Number(ctx.raw).toLocaleString('en-IN')}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            color: "#94a3b8",
+            font: { size: 9 },
+            maxRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 12
+          }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(255, 255, 255, 0.04)" },
+          ticks: {
+            color: "#94a3b8",
+            font: { size: 9 },
+            callback: (v) => v === 0 ? '' : `₹${v}`
+          }
+        }
+      }
+    }
+  });
+}
+
+// --- Monthly Expenses View (Replaced Old Comparison View) ---
+function renderMonthlyExpenses() {
+  const allMonths = getAvailableMonths(); // Descending (e.g. 2026-12, 2026-11)
+  const currentMonthStr = getTodayDateStr().substring(0, 7);
+
+  const monthSummaries = allMonths.map(m => {
     const items = expenses.filter(e => (e.month === m) || (e.date && e.date.substring(0, 7) === m));
     const total = items.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const datesSet = new Set(items.map(e => e.date));
     const activeDays = datesSet.size || 1;
     const avg = Math.round(total / activeDays);
+    const isOngoing = (m === currentMonthStr);
 
-    // Top Category
-    const catTotals = {};
-    items.forEach(e => {
-      catTotals[e.category] = (catTotals[e.category] || 0) + Number(e.amount);
-    });
-    let topCat = "-";
-    let topCatAmt = 0;
-    Object.keys(catTotals).forEach(c => {
-      if (catTotals[c] > topCatAmt) {
-        topCatAmt = catTotals[c];
-        topCat = c;
-      }
-    });
-
-    monthSummaries.push({
+    return {
       month: m,
-      total,
-      avg,
+      total: total,
+      avg: avg,
       count: items.length,
-      topCat,
-      topCatAmt,
-      catTotals
-    });
+      isOngoing: isOngoing
+    };
   });
 
-  // Calculate MoM Changes
-  for (let i = 0; i < monthSummaries.length; i++) {
-    if (i === 0) {
-      monthSummaries[i].momChange = 0;
-    } else {
-      const prev = monthSummaries[i - 1].total;
-      const curr = monthSummaries[i].total;
-      if (prev > 0) {
-        monthSummaries[i].momChange = Math.round(((curr - prev) / prev) * 100);
-      } else {
-        monthSummaries[i].momChange = 0;
+  const overallTotal = monthSummaries.reduce((s, m) => s + m.total, 0);
+  const totalMonthsCount = monthSummaries.length;
+  const overallAvg = totalMonthsCount > 0 ? Math.round(overallTotal / totalMonthsCount) : 0;
+
+  const cmpOverallTotal = document.getElementById("cmpOverallTotal");
+  if (cmpOverallTotal) cmpOverallTotal.textContent = `₹${overallTotal.toLocaleString('en-IN')}`;
+
+  const cmpMonthsCount = document.getElementById("cmpMonthsCount");
+  if (cmpMonthsCount) cmpMonthsCount.textContent = totalMonthsCount;
+
+  const cmpOverallAvg = document.getElementById("cmpOverallAvg");
+  if (cmpOverallAvg) cmpOverallAvg.textContent = `₹${overallAvg.toLocaleString('en-IN')}`;
+
+  const maxMonthSpend = Math.max(...monthSummaries.map(m => m.total), 1);
+
+  // Render Monthly Expense Cards Stream (Nov 2026 - 4000, Dec 2026 - 2300* ongoing month)
+  const container = document.getElementById("monthlyExpensesList");
+  if (container) {
+    container.innerHTML = "";
+
+    monthSummaries.forEach(m => {
+      const card = document.createElement("div");
+      card.className = `month-spend-card ${m.isOngoing ? 'ongoing-card' : ''}`;
+      card.onclick = () => selectAndOpenMonth(m.month);
+
+      const percent = Math.min(Math.max(Math.round((m.total / maxMonthSpend) * 100), 3), 100);
+      const asterisk = m.isOngoing ? '*' : '';
+
+      card.innerHTML = `
+        <div class="m-spend-header">
+          <div class="m-name-group">
+            <span class="m-name-text">${formatMonthReadable(m.month)}</span>
+            ${m.isOngoing ? `<span class="ongoing-badge">* ongoing month</span>` : ''}
+          </div>
+          <div class="m-amount-text">
+            ₹${m.total.toLocaleString('en-IN')}${asterisk}
+          </div>
+        </div>
+        <div class="m-graph-track">
+          <div class="m-graph-fill ${m.isOngoing ? 'ongoing' : ''}" style="width: ${percent}%;"></div>
+        </div>
+        <div class="m-spend-footer">
+          <span>${m.count} ${m.count === 1 ? 'entry' : 'entries'} • ₹${m.avg.toLocaleString('en-IN')}/day</span>
+          <span class="open-month-btn">View Days ›</span>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  // Render Month-by-Month Compare Bar Chart
+  renderMonthlyCompareChart(monthSummaries.slice().reverse());
+}
+
+function renderMonthlyCompareChart(chronologicalSummaries) {
+  const el = document.getElementById("monthlyCompareChart");
+  if (!el) return;
+
+  const labels = chronologicalSummaries.map(m => {
+    const readable = formatMonthReadable(m.month);
+    return m.isOngoing ? `${readable}*` : readable;
+  });
+  const totals = chronologicalSummaries.map(m => m.total);
+  const colors = chronologicalSummaries.map(m => m.isOngoing ? "#10b981" : "#6366f1");
+
+  if (monthlyCompareChart) monthlyCompareChart.destroy();
+
+  const ctx = el.getContext("2d");
+  monthlyCompareChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Total Expenses (₹)",
+        data: totals,
+        backgroundColor: colors,
+        borderRadius: 8,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `Spent: ₹${Number(ctx.raw).toLocaleString('en-IN')}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: "#94a3b8" }
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: "rgba(255, 255, 255, 0.05)" },
+          ticks: {
+            color: "#94a3b8",
+            callback: (v) => `₹${v.toLocaleString('en-IN')}`
+          }
+        }
       }
     }
-  }
-
-  // Update Comparison KPIs
-  const trackedCount = monthSummaries.length;
-  const cmpMonthsCountEl = document.getElementById("cmpMonthsCount");
-  if (cmpMonthsCountEl) cmpMonthsCountEl.textContent = `${trackedCount} Month${trackedCount > 1 ? 's' : ''}`;
-  
-  const overallTotal = monthSummaries.reduce((s, m) => s + m.total, 0);
-  const overallAvg = trackedCount > 0 ? Math.round(overallTotal / trackedCount) : 0;
-  const cmpOverallAvgEl = document.getElementById("cmpOverallAvg");
-  if (cmpOverallAvgEl) cmpOverallAvgEl.textContent = `₹${overallAvg.toLocaleString('en-IN')}`;
-
-  let highestM = null;
-  monthSummaries.forEach(m => {
-    if (!highestM || m.total > highestM.total) highestM = m;
   });
-  if (highestM) {
-    const highestMonthEl = document.getElementById("cmpHighestMonth");
-    const highestAmountEl = document.getElementById("cmpHighestAmount");
-    if (highestMonthEl) highestMonthEl.textContent = formatMonthReadable(highestM.month);
-    if (highestAmountEl) highestAmountEl.textContent = `₹${highestM.total.toLocaleString('en-IN')}`;
-  }
-
-  // Render Table (Newest first)
-  const tbody = document.getElementById("comparisonTableBody");
-  if (tbody) {
-    tbody.innerHTML = "";
-    const reversedSummaries = monthSummaries.slice().reverse();
-
-    reversedSummaries.forEach(m => {
-      const tr = document.createElement("tr");
-      
-      let momBadge = `<span style="color: var(--text-muted);">-</span>`;
-      if (m.momChange > 0) {
-        momBadge = `<span style="color: var(--danger); font-weight: 600;">+${m.momChange}% ↗</span>`;
-      } else if (m.momChange < 0) {
-        momBadge = `<span style="color: var(--success); font-weight: 600;">${m.momChange}% ↘</span>`;
-      }
-
-      const catIcon = CATEGORIES[m.topCat]?.icon || "📦";
-
-      tr.innerHTML = `
-        <td><strong>${formatMonthReadable(m.month)}</strong></td>
-        <td><strong>₹${m.total.toLocaleString('en-IN')}</strong></td>
-        <td>₹${m.avg.toLocaleString('en-IN')}/day</td>
-        <td>${m.count} txns</td>
-        <td>${momBadge}</td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  // Render Charts
-  renderComparisonCharts(monthSummaries);
 }
 
-function renderComparisonCharts(monthSummaries) {
-  const labels = monthSummaries.map(m => formatMonthReadable(m.month));
-  const totals = monthSummaries.map(m => m.total);
+function selectAndOpenMonth(month) {
+  selectedMonth = month;
+  currentTab = "dailyView";
 
-  // 1. Monthly Total Bar Chart
-  const elMonthly = document.getElementById("monthlyCompareChart");
-  if (elMonthly) {
-    const ctxBar = elMonthly.getContext("2d");
-    if (monthlyCompareChart) monthlyCompareChart.destroy();
+  document.querySelectorAll(".segment-btn, .tab-btn").forEach(b => {
+    if (b.getAttribute("data-tab") === "dailyView") b.classList.add("active");
+    else b.classList.remove("active");
+  });
 
-    monthlyCompareChart = new Chart(ctxBar, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: [{
-          label: "Total Expenses (₹)",
-          data: totals,
-          backgroundColor: "rgba(99, 102, 241, 0.7)",
-          borderColor: "#6366f1",
-          borderWidth: 2,
-          borderRadius: 8,
-          hoverBackgroundColor: "rgba(99, 102, 241, 0.9)"
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `Spent: ₹${ctx.raw.toLocaleString('en-IN')}`
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: { color: "rgba(255, 255, 255, 0.05)" },
-            ticks: {
-              color: "#94a3b8",
-              callback: (val) => `₹${val.toLocaleString('en-IN')}`
-            }
-          },
-          x: {
-            grid: { display: false },
-            ticks: { color: "#94a3b8" }
-          }
-        }
-      }
-    });
+  document.querySelectorAll(".view-content").forEach(v => {
+    v.style.display = "none";
+    v.classList.remove("active");
+  });
+
+  const dailyEl = document.getElementById("dailyView");
+  if (dailyEl) {
+    dailyEl.style.display = "block";
+    dailyEl.classList.add("active");
   }
 
-  // 2. Stacked Category Compare Chart (if canvas exists)
-  const elCat = document.getElementById("categoryCompareChart");
-  if (elCat) {
-    const ctxCat = elCat.getContext("2d");
-    if (categoryCompareChart) categoryCompareChart.destroy();
-
-    const allCategoryNames = Object.keys(CATEGORIES);
-    const datasets = allCategoryNames.map(cat => {
-      return {
-        label: cat,
-        data: monthSummaries.map(m => m.catTotals[cat] || 0),
-        backgroundColor: CATEGORIES[cat].color,
-        borderRadius: 4
-      };
-    }).filter(ds => ds.data.some(v => v > 0));
-
-    categoryCompareChart = new Chart(ctxCat, {
-      type: "bar",
-      data: {
-        labels: labels,
-        datasets: datasets
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: "top",
-            labels: { color: "#94a3b8", boxWidth: 12 }
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}`
-            }
-          }
-        },
-        scales: {
-          x: {
-            stacked: true,
-            grid: { display: false },
-            ticks: { color: "#94a3b8" }
-          },
-          y: {
-            stacked: true,
-            grid: { color: "rgba(255, 255, 255, 0.05)" },
-            ticks: {
-              color: "#94a3b8",
-              callback: (val) => `₹${val.toLocaleString('en-IN')}`
-            }
-          }
-        }
-      }
-    });
-  }
+  renderApp();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
+window.selectAndOpenMonth = selectAndOpenMonth;
 
 // --- Analytics & Categories View ---
 function renderAnalytics() {
@@ -708,11 +755,49 @@ function parseAIPrompt(rawText) {
     return null;
   }
 
-  // 2. Extract Date
+  // 2. Extract Date (supports "nov 1", "nov 2", "1st nov", "on 5th", "yesterday", "today")
   let targetDate = getTodayDateStr();
   let timeStr = formatCurrentTimeStr();
 
-  if (/\b(yesterday|yday)\b/i.test(text)) {
+  const monthMap = {
+    jan: "01", january: "01",
+    feb: "02", february: "02",
+    mar: "03", march: "03",
+    apr: "04", april: "04",
+    may: "05",
+    jun: "06", june: "06",
+    jul: "07", july: "07",
+    aug: "08", august: "08",
+    sep: "09", sept: "09", september: "09",
+    oct: "10", october: "10",
+    nov: "11", november: "11",
+    dec: "12", december: "12"
+  };
+
+  const monthNamesRegex = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+  
+  // Pattern A: "nov 1", "nov 2nd", "november 15"
+  const matchA = text.match(new RegExp(`\\b(${monthNamesRegex})\\s*(\\d{1,2})(?:st|nd|rd|th)?\\b`, 'i'));
+  // Pattern B: "1st nov", "2 nov", "15 november"
+  const matchB = text.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s*)?(${monthNamesRegex})\\b`, 'i'));
+  // Pattern C: "on 5th", "on the 2nd" (in currently selected month)
+  const matchC = text.match(/\b(?:on\s*(?:the\s*)?)(\d{1,2})(?:st|nd|rd|th)\b/i);
+
+  if (matchA) {
+    const moStr = monthMap[matchA[1].toLowerCase()] || "11";
+    const dayStr = String(parseInt(matchA[2], 10)).padStart(2, '0');
+    const yr = (selectedMonth && selectedMonth.includes('-')) ? selectedMonth.substring(0, 4) : new Date().getFullYear();
+    targetDate = `${yr}-${moStr}-${dayStr}`;
+  } else if (matchB) {
+    const dayStr = String(parseInt(matchB[1], 10)).padStart(2, '0');
+    const moStr = monthMap[matchB[2].toLowerCase()] || "11";
+    const yr = (selectedMonth && selectedMonth.includes('-')) ? selectedMonth.substring(0, 4) : new Date().getFullYear();
+    targetDate = `${yr}-${moStr}-${dayStr}`;
+  } else if (matchC) {
+    const dayStr = String(parseInt(matchC[1], 10)).padStart(2, '0');
+    const yrMo = (selectedMonth && selectedMonth.includes('-')) ? selectedMonth : getTodayDateStr().substring(0, 7);
+    targetDate = `${yrMo}-${dayStr}`;
+  } else if (/\b(yesterday|yday)\b/i.test(text)) {
     targetDate = getYesterdayDateStr();
   } else if (/\b(day before yesterday)\b/i.test(text)) {
     const d = new Date();
@@ -747,8 +832,10 @@ function parseAIPrompt(rawText) {
 
   // Derive human clean description from prompt
   let cleanDesc = rawText.trim()
-    .replace(/(?:spent|spend|paid|pay|for|in|morning|evening|night|today|yesterday|via|rupees|rs\.?|₹|bucks|now)\b/gi, '')
+    .replace(/(?:spent|spend|paid|pay|for|in|morning|evening|night|today|yesterday|via|rupees|rs\.?|₹|bucks|now|on|at|the|st|nd|rd|th)\b/gi, '')
+    .replace(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/gi, '')
     .replace(/\b\d+(\.\d+)?\b/g, '')
+    .replace(/[:\-]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -1151,6 +1238,22 @@ function formatShortDate(dateStr) {
   const [y, m, d] = dateStr.split('-');
   const date = new Date(y, parseInt(m, 10) - 1, d);
   return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short' });
+}
+
+function formatDayReadable(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split('-');
+  const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+  const monthShort = date.toLocaleDateString('en-US', { month: 'short' });
+  const dayNum = parseInt(d, 10);
+  return `${monthShort} ${dayNum}`; // e.g. "Nov 1"
+}
+
+function formatWeekday(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split('-');
+  const date = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+  return date.toLocaleDateString('en-US', { weekday: 'short' });
 }
 
 function capitalizeFirst(str) {

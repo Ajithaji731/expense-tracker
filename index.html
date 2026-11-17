@@ -12,7 +12,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💸</text></svg>">
   <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%236366f1%22/><text x=%2250%%22 y=%2255%%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2260%22>💸</text></svg>">
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=3">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -76,8 +76,8 @@
         <span>Daily Spending</span>
       </button>
       <button class="segment-btn" data-tab="compareView">
-        <i data-lucide="bar-chart-2"></i>
-        <span>Monthly Comparison</span>
+        <i data-lucide="layers"></i>
+        <span>Monthly Expenses</span>
       </button>
     </div>
 
@@ -124,7 +124,7 @@
           <input 
             type="text" 
             id="aiPromptInput" 
-            placeholder='Type: "spent 200 today", "10 now", "500"...' 
+            placeholder='Type: "spent 200 today", "nov 1 : 250 spent", "10 now"...' 
             autocomplete="off"
           >
           <button type="submit" class="log-submit-btn">
@@ -144,6 +144,20 @@
           <button type="button" class="quick-chip" data-prompt="spent 1000">+1000</button>
         </div>
       </section>
+
+      <!-- Compact Daily Spending Side-Trend Chart -->
+      <div class="daily-chart-card glass-panel" id="dailyChartSection">
+        <div class="chart-title-row">
+          <div class="d-chart-title">
+            <i data-lucide="bar-chart-2"></i>
+            <span id="dailyChartMonthLabel">November Daily Trend</span>
+          </div>
+          <span class="d-chart-peak" id="dailyChartPeakTag">Daily Spend</span>
+        </div>
+        <div class="daily-chart-box">
+          <canvas id="dailyTrendChart"></canvas>
+        </div>
+      </div>
 
       <!-- Search & Date Filter Bar (Compact) -->
       <div class="sub-controls-bar">
@@ -166,65 +180,65 @@
         </button>
       </div>
 
-      <!-- Day by Day List -->
+      <!-- Day by Day List (with side graph: Nov 1 : 250 spent) -->
       <div id="dailyContainer" class="daily-stream">
         <!-- Rendered dynamically -->
       </div>
     </div>
 
-    <!-- VIEW 2: Monthly Comparison -->
+    <!-- VIEW 2: Monthly Expenses (Replaced Comparison) -->
     <section id="compareView" class="view-content" style="display: none;">
-      <div class="comparison-summary-row">
-        <div class="cmp-card glass-panel">
-          <span class="cmp-label">Tracked Months</span>
-          <h3 id="cmpMonthsCount" class="cmp-val">1 Month</h3>
+      
+      <!-- All-Time Tracked Overview -->
+      <div class="monthly-overview-card glass-panel">
+        <div class="m-hero-left">
+          <span class="m-hero-sub">All-Time Spend</span>
+          <h2 id="cmpOverallTotal" class="m-hero-val">₹0</h2>
         </div>
-        <div class="cmp-card glass-panel">
-          <span class="cmp-label">Monthly Average</span>
-          <h3 id="cmpOverallAvg" class="cmp-val">₹0</h3>
-        </div>
-        <div class="cmp-card glass-panel">
-          <span class="cmp-label">Highest Month</span>
-          <h3 id="cmpHighestMonth" class="cmp-val">-</h3>
-          <span id="cmpHighestAmount" class="cmp-sub">₹0</span>
+        <div class="m-hero-stats">
+          <div class="m-stat">
+            <span class="m-stat-label">Months</span>
+            <span id="cmpMonthsCount" class="m-stat-val">1</span>
+          </div>
+          <div class="m-stat-divider"></div>
+          <div class="m-stat">
+            <span class="m-stat-label">Monthly Avg</span>
+            <span id="cmpOverallAvg" class="m-stat-val">₹0</span>
+          </div>
         </div>
       </div>
 
-      <!-- Comparison Chart -->
+      <!-- Monthly Trend Bar Chart -->
       <div class="chart-container-card glass-panel">
         <div class="chart-title-row">
-          <h3>Month-by-Month Spend (₹)</h3>
+          <div class="d-chart-title">
+            <i data-lucide="trending-up"></i>
+            <span>Month-by-Month Expenses</span>
+          </div>
         </div>
         <div class="chart-box">
           <canvas id="monthlyCompareChart"></canvas>
         </div>
       </div>
 
-      <!-- Stacked Category Chart (hidden canvas to keep Chart.js binding safe) -->
-      <div style="display: none;">
-        <canvas id="categoryCompareChart"></canvas>
-        <canvas id="categoryDonutChart"></canvas>
+      <!-- Monthly Expenses List (Nov 2026 - 4000, Dec 2026 - 2300* ongoing month) -->
+      <div class="monthly-list-section">
+        <div class="section-title-row">
+          <h3>Monthly Expenses</h3>
+          <span class="ongoing-legend">* ongoing month</span>
+        </div>
+        <div id="monthlyExpensesList" class="monthly-cards-stream">
+          <!-- Dynamically populated -->
+        </div>
       </div>
 
-      <!-- Comparison Data Table -->
-      <div class="table-card glass-panel">
-        <h3 class="table-title">Monthly Summary</h3>
-        <div class="table-scroll-wrapper">
-          <table class="comparison-table">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th>Total</th>
-                <th>Daily Avg</th>
-                <th>Entries</th>
-                <th>MoM</th>
-              </tr>
-            </thead>
-            <tbody id="comparisonTableBody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
+      <!-- Hidden elements for chart/script safety -->
+      <div style="display: none;">
+        <span id="cmpHighestMonth"></span>
+        <span id="cmpHighestAmount"></span>
+        <table class="comparison-table"><tbody id="comparisonTableBody"></tbody></table>
+        <canvas id="categoryCompareChart"></canvas>
+        <canvas id="categoryDonutChart"></canvas>
       </div>
     </section>
 
@@ -281,6 +295,6 @@
   <!-- Toast Container -->
   <div id="toastContainer" class="toast-container"></div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
