@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Expenses">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0b0f19">
+  <title>Expense Tracker - Smart AI Connected</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💸</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%236366f1%22/><text x=%2250%%22 y=%2255%%22 dominant-baseline=%22central%22 text-anchor=%22middle%22 font-size=%2260%22>💸</text></svg>">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header glass-panel">
+      <div class="header-top">
+        <div class="brand-section">
+          <div class="brand-icon">💸</div>
+          <div class="brand-titles">
+            <h1>Expense Tracker</h1>
+            <p>Smart Daily Tracking & AI Sync</p>
+          </div>
+        </div>
+
+        <div class="header-controls">
+          <!-- Month Selector -->
+          <div class="month-selector-wrapper" title="Switch Month">
+            <button id="prevMonthBtn" class="nav-arrow-btn" aria-label="Previous Month">
+              <i data-lucide="chevron-left"></i>
+            </button>
+            <select id="monthSelect" class="month-select" aria-label="Select Month">
+              <!-- Dynamically populated -->
+            </select>
+            <button id="nextMonthBtn" class="nav-arrow-btn" aria-label="Next Month">
+              <i data-lucide="chevron-right"></i>
+            </button>
+          </div>
+
+          <!-- Cloud Sync Badge / Sync Now Button -->
+          <button id="syncNowBtn" class="cloud-status-badge" title="Connected to Google Sheet. Click to Sync Now">
+            <span class="status-dot"></span>
+            <span id="syncStatusText">Sheets Synced</span>
+            <i data-lucide="refresh-cw" style="width: 13px; height: 13px;"></i>
+          </button>
+
+          <!-- Export JSON Button -->
+          <button id="exportDataBtn" class="btn-icon" title="Export Backup JSON">
+            <i data-lucide="download"></i>
+          </button>
+
+          <!-- Theme Selector -->
+          <select id="themeSelect" class="btn-icon" style="padding: 7px 10px; outline: none;">
+            <option value="default">🌙 Dark</option>
+            <option value="alt-dark">🖤 OLED</option>
+            <option value="light">☀️ Light</option>
+          </select>
+
+          <!-- Add Expense Button -->
+          <button id="openAddModalBtn" class="btn-icon btn-primary">
+            <i data-lucide="plus"></i>
+            <span>Add Expense</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="view-tabs">
+        <button class="tab-btn active" data-tab="dailyView">
+          <i data-lucide="calendar"></i>
+          <span>Daily Breakdown</span>
+        </button>
+        <button class="tab-btn" data-tab="compareView">
+          <i data-lucide="bar-chart-2"></i>
+          <span>Monthly Comparison</span>
+        </button>
+        <button class="tab-btn" data-tab="analyticsView">
+          <i data-lucide="pie-chart"></i>
+          <span>Categories & Trends</span>
+        </button>
+      </nav>
+    </header>
+
+    <!-- AI Quick Prompt Bar -->
+    <section class="ai-prompt-card glass-panel">
+      <div class="ai-prompt-header">
+        <div class="ai-prompt-title">
+          <i data-lucide="sparkles" class="ai-sparkle"></i>
+          <span>AI Quick Prompt</span>
+        </div>
+        <span class="ai-prompt-subtitle">Type naturally: "spent 20 for tea", "paid 50 auto", "lunch 150"</span>
+      </div>
+
+      <form id="aiPromptForm" class="ai-input-form">
+        <div class="ai-input-wrapper">
+          <i data-lucide="message-square" class="ai-input-icon"></i>
+          <input 
+            type="text" 
+            id="aiPromptInput" 
+            placeholder="E.g., spent 20 for tea in morning, paid 50 for auto, 300 swiggy..." 
+            autocomplete="off"
+          >
+        </div>
+        <button type="submit" class="btn-icon btn-primary" style="padding: 10px 18px;">
+          <i data-lucide="send"></i>
+          <span>Log</span>
+        </button>
+      </form>
+
+      <div class="ai-quick-chips">
+        <button type="button" class="prompt-chip" data-prompt="spent 20 for tea">☕ Tea ₹20</button>
+        <button type="button" class="prompt-chip" data-prompt="paid 50 for auto">🚗 Auto ₹50</button>
+        <button type="button" class="prompt-chip" data-prompt="spent 140 for lunch">🍱 Lunch ₹140</button>
+        <button type="button" class="prompt-chip" data-prompt="paid 350 for groceries">🛒 Groceries ₹350</button>
+        <button type="button" class="prompt-chip" data-prompt="paid 200 for petrol">⛽ Petrol ₹200</button>
+        <button type="button" class="prompt-chip" data-prompt="paid 50">⚡ Paid 50</button>
+      </div>
+    </section>
+
+    <!-- Month KPI Summary Cards -->
+    <section class="kpi-grid">
+      <div class="kpi-card glass-panel">
+        <div class="kpi-icon-box total">₹</div>
+        <div class="kpi-details">
+          <p>Total Spent</p>
+          <h3 id="kpiTotalSpent">₹0</h3>
+          <span class="kpi-subtext" id="kpiMonthLabel">This Month</span>
+        </div>
+      </div>
+
+      <div class="kpi-card glass-panel">
+        <div class="kpi-icon-box avg">📈</div>
+        <div class="kpi-details">
+          <p>Daily Average</p>
+          <h3 id="kpiDailyAvg">₹0</h3>
+          <span class="kpi-subtext" id="kpiAvgSub">Per active day</span>
+        </div>
+      </div>
+
+      <div class="kpi-card glass-panel">
+        <div class="kpi-icon-box peak">🔥</div>
+        <div class="kpi-details">
+          <p>Highest Spend Day</p>
+          <h3 id="kpiPeakDay">None</h3>
+          <span class="kpi-subtext" id="kpiPeakAmount">₹0</span>
+        </div>
+      </div>
+
+      <div class="kpi-card glass-panel">
+        <div class="kpi-icon-box count">🧾</div>
+        <div class="kpi-details">
+          <p>Transactions</p>
+          <h3 id="kpiTxnCount">0</h3>
+          <span class="kpi-subtext" id="kpiTopCategory">Top: None</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 1: Daily Breakdown -->
+    <main id="dailyView" class="view-content active">
+      <!-- Search & Filters -->
+      <div class="filter-bar">
+        <div class="search-box">
+          <i data-lucide="search" class="search-icon"></i>
+          <input type="text" id="searchInput" placeholder="Search by note, category, or amount...">
+        </div>
+        <div class="filter-controls">
+          <select id="categoryFilter" class="select-filter">
+            <option value="all">All Categories</option>
+            <!-- Dynamic categories -->
+          </select>
+          <select id="sortFilter" class="select-filter">
+            <option value="date-desc">Date (Newest first)</option>
+            <option value="date-asc">Date (Oldest first)</option>
+            <option value="amount-desc">Amount (Highest first)</option>
+            <option value="amount-asc">Amount (Lowest first)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Day by Day List -->
+      <div id="dailyContainer" class="daily-breakdown-container">
+        <!-- Injected dynamically by JS -->
+      </div>
+    </main>
+
+    <!-- VIEW 2: Monthly Comparison -->
+    <section id="compareView" class="view-content comparison-container" style="display: none;">
+      <div class="comparison-kpi-row">
+        <div class="kpi-card glass-panel">
+          <div class="kpi-icon-box total">📊</div>
+          <div class="kpi-details">
+            <p>Tracked Months</p>
+            <h3 id="cmpMonthsCount">1 Month</h3>
+            <span class="kpi-subtext">Historical comparison</span>
+          </div>
+        </div>
+
+        <div class="kpi-card glass-panel">
+          <div class="kpi-icon-box avg">⭐</div>
+          <div class="kpi-details">
+            <p>Overall Average</p>
+            <h3 id="cmpOverallAvg">₹0</h3>
+            <span class="kpi-subtext">Avg spend per month</span>
+          </div>
+        </div>
+
+        <div class="kpi-card glass-panel">
+          <div class="kpi-icon-box peak">🏆</div>
+          <div class="kpi-details">
+            <p>Highest Month</p>
+            <h3 id="cmpHighestMonth">-</h3>
+            <span class="kpi-subtext" id="cmpHighestAmount">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison Chart -->
+      <div class="chart-card glass-panel">
+        <div class="chart-header">
+          <h3>Monthly Total Spend Comparison</h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Month-over-month trend</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="monthlyCompareChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Stacked Category Comparison Chart -->
+      <div class="chart-card glass-panel">
+        <div class="chart-header">
+          <h3>Category Breakdown by Month</h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Where money went across months</span>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="categoryCompareChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Comparison Data Table -->
+      <div class="month-table-card glass-panel">
+        <h3 style="margin-bottom: 14px; font-size: 1.05rem;">Month-wise Breakdown Summary</h3>
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Total Spent</th>
+              <th>Daily Average</th>
+              <th>Transactions</th>
+              <th>Top Category</th>
+              <th>MoM Change</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonTableBody">
+            <!-- Dynamic rows -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- VIEW 3: Categories & Analytics -->
+    <section id="analyticsView" class="view-content analytics-grid" style="display: none;">
+      <!-- Donut Chart -->
+      <div class="chart-card glass-panel">
+        <div class="chart-header">
+          <h3>Category Distribution</h3>
+          <span id="donutMonthLabel" style="font-size: 0.8rem; color: var(--text-muted);">Current Month</span>
+        </div>
+        <div class="chart-wrapper" style="height: 280px;">
+          <canvas id="categoryDonutChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Category Progress List -->
+      <div class="chart-card glass-panel">
+        <div class="chart-header">
+          <h3>Spending by Category</h3>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Sorted by highest spend</span>
+        </div>
+        <div id="categoryProgressContainer" class="category-progress-list">
+          <!-- Dynamic progress bars -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- MODAL: Add / Edit Expense -->
+  <div id="expenseModal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">Add Expense</h3>
+        <button id="closeExpenseModal" class="btn-close">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <form id="expenseForm">
+        <input type="hidden" id="editExpenseId">
+
+        <div class="form-group">
+          <label for="formAmount">Amount (₹) *</label>
+          <input type="number" id="formAmount" class="form-control" placeholder="E.g. 20, 50, 250" required min="1" step="any">
+        </div>
+
+        <div class="form-group">
+          <label for="formDescription">Description / Note *</label>
+          <input type="text" id="formDescription" class="form-control" placeholder="E.g. Morning Tea, Auto to metro, Swiggy dinner" required>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="formCategory">Category</label>
+            <select id="formCategory" class="form-control">
+              <!-- Dynamically populated -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="formPaymentMode">Payment Mode</label>
+            <select id="formPaymentMode" class="form-control">
+              <option value="UPI">UPI / GPay / PhonePe</option>
+              <option value="Cash">Cash</option>
+              <option value="Credit Card">Credit Card</option>
+              <option value="Debit Card">Debit Card</option>
+              <option value="Net Banking">Net Banking</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="formDate">Date</label>
+            <input type="date" id="formDate" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label for="formTime">Time</label>
+            <input type="text" id="formTime" class="form-control" placeholder="09:30 AM">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="cancelExpenseBtn" class="btn-icon">Cancel</button>
+          <button type="submit" class="btn-icon btn-primary">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+
+  <!-- Mobile Floating Add Button -->
+  <button id="mobileFabBtn" class="mobile-fab" aria-label="Add Expense" onclick="openExpenseModalForAdd()">
+    <i data-lucide="plus"></i>
+  </button>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+
