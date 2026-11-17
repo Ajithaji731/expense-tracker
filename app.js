@@ -19,43 +19,8 @@ const CATEGORIES = {
   "Other": { icon: "📦", color: "#64748b", keywords: [] }
 };
 
-// --- Initial Sample Expenses (Nov 2026 & Oct 2026) ---
-const INITIAL_SAMPLE_DATA = [
-  // Today (17 Nov 2026)
-  { id: "exp_1731816001", date: "2026-11-17", time: "08:30 AM", month: "2026-11", amount: 20, description: "Morning Tea", category: "Food & Drinks", paymentMode: "UPI", source: "AI Agent", createdAt: "2026-11-17T03:00:00.000Z" },
-  { id: "exp_1731816002", date: "2026-11-17", time: "09:45 AM", month: "2026-11", amount: 50, description: "Auto to metro station", category: "Transportation", paymentMode: "UPI", source: "AI Agent", createdAt: "2026-11-17T04:15:00.000Z" },
-  
-  // 16 Nov 2026
-  { id: "exp_1731816003", date: "2026-11-16", time: "01:15 PM", month: "2026-11", amount: 140, description: "Office Lunch", category: "Food & Drinks", paymentMode: "UPI", source: "App", createdAt: "2026-11-16T07:45:00.000Z" },
-  { id: "exp_1731816004", date: "2026-11-16", time: "05:00 PM", month: "2026-11", amount: 30, description: "Chai and biscuits", category: "Food & Drinks", paymentMode: "Cash", source: "AI Agent", createdAt: "2026-11-16T11:30:00.000Z" },
-  
-  // 15 Nov 2026
-  { id: "exp_1731816005", date: "2026-11-15", time: "11:30 AM", month: "2026-11", amount: 650, description: "Weekly vegetables & fruits", category: "Groceries", paymentMode: "UPI", source: "App", createdAt: "2026-11-15T06:00:00.000Z" },
-  { id: "exp_1731816006", date: "2026-11-15", time: "04:30 PM", month: "2026-11", amount: 40, description: "Cold Coffee", category: "Food & Drinks", paymentMode: "UPI", source: "AI Agent", createdAt: "2026-11-15T11:00:00.000Z" },
-
-  // 14 Nov 2026
-  { id: "exp_1731816007", date: "2026-11-14", time: "09:00 AM", month: "2026-11", amount: 300, description: "Petrol for bike", category: "Transportation", paymentMode: "UPI", source: "AI Agent", createdAt: "2026-11-14T03:30:00.000Z" },
-  { id: "exp_1731816008", date: "2026-11-14", time: "08:15 AM", month: "2026-11", amount: 20, description: "Tea", category: "Food & Drinks", paymentMode: "UPI", source: "AI Agent", createdAt: "2026-11-14T02:45:00.000Z" },
-
-  // 12 Nov 2026
-  { id: "exp_1731816009", date: "2026-11-12", time: "02:00 PM", month: "2026-11", amount: 999, description: "Broadband Wi-Fi bill", category: "Bills & Utilities", paymentMode: "UPI", source: "App", createdAt: "2026-11-12T08:30:00.000Z" },
-  
-  // 10 Nov 2026
-  { id: "exp_1731816010", date: "2026-11-10", time: "06:45 PM", month: "2026-11", amount: 450, description: "Technical Handbook book purchase", category: "Education & Learning", paymentMode: "UPI", source: "App", createdAt: "2026-11-10T13:15:00.000Z" },
-
-  // 05 Nov 2026
-  { id: "exp_1731816011", date: "2026-11-05", time: "08:30 PM", month: "2026-11", amount: 820, description: "Dinner with friends", category: "Food & Drinks", paymentMode: "Credit Card", source: "App", createdAt: "2026-11-05T15:00:00.000Z" },
-
-  // 01 Nov 2026
-  { id: "exp_1731816012", date: "2026-11-01", time: "10:00 AM", month: "2026-11", amount: 1200, description: "Monthly Electricity bill", category: "Bills & Utilities", paymentMode: "UPI", source: "App", createdAt: "2026-11-01T04:30:00.000Z" },
-
-  // October 2026 (for comparison tab showcase)
-  { id: "exp_1731815001", date: "2026-10-02", time: "09:00 AM", month: "2026-10", amount: 1150, description: "Electricity bill", category: "Bills & Utilities", paymentMode: "UPI", source: "App", createdAt: "2026-10-02T03:30:00.000Z" },
-  { id: "exp_1731815002", date: "2026-10-08", time: "01:30 PM", month: "2026-10", amount: 1450, description: "Amazon Festive Shopping", category: "Shopping", paymentMode: "Credit Card", source: "App", createdAt: "2026-10-08T08:00:00.000Z" },
-  { id: "exp_1731815003", date: "2026-10-15", time: "07:00 PM", month: "2026-10", amount: 850, description: "Dinner & Movie ticket", category: "Entertainment", paymentMode: "UPI", source: "App", createdAt: "2026-10-15T13:30:00.000Z" },
-  { id: "exp_1731815004", date: "2026-10-22", time: "11:00 AM", month: "2026-10", amount: 900, description: "Monthly Groceries", category: "Groceries", paymentMode: "UPI", source: "App", createdAt: "2026-10-22T05:30:00.000Z" },
-  { id: "exp_1731815005", date: "2026-10-28", time: "06:00 PM", month: "2026-10", amount: 480, description: "Petrol and chai", category: "Transportation", paymentMode: "UPI", source: "AI Agent", createdAt: "2026-10-28T12:30:00.000Z" }
-];
+// --- Initial Expenses (Starts 100% clean - No dummy data) ---
+const INITIAL_SAMPLE_DATA = [];
 
 // --- App State ---
 let expenses = [];
@@ -127,19 +92,28 @@ function loadStoredData() {
   const localData = localStorage.getItem("expense_tracker_data");
   if (localData) {
     try {
-      expenses = JSON.parse(localData);
+      const parsed = JSON.parse(localData);
+      // Filter out any legacy dummy records so app is 100% clean
+      expenses = Array.isArray(parsed) ? parsed.filter(e => 
+        !e.id.startsWith("exp_1731815") && 
+        !e.id.startsWith("exp_1731816") && 
+        e.description !== "Broadband Wi-Fi bill" && 
+        e.description !== "Technical Handbook book purchase" &&
+        e.description !== "Dinner with friends" &&
+        e.description !== "Monthly Electricity bill"
+      ) : [];
       expenses.forEach(e => {
         e.date = normalizeDateStr(e.date);
         e.month = normalizeMonthStr(e.month || e.date);
         e.time = normalizeTimeStr(e.time);
       });
     } catch (e) {
-      expenses = INITIAL_SAMPLE_DATA;
+      expenses = [];
     }
   } else {
-    expenses = INITIAL_SAMPLE_DATA;
-    saveToLocalStorage();
+    expenses = [];
   }
+  saveToLocalStorage();
 
   // Ensure current date month is selected if available, or latest available month
   const today = getTodayDateStr();
@@ -700,11 +674,11 @@ function parseAIPrompt(rawText) {
   const text = rawText.trim().toLowerCase();
 
   // 1. Extract Amount
-  // Matches: "20", "20 rupees", "₹20", "rs 20", "rs. 50", "paid 50", "spent 250"
+  // Matches: "spent 200 for today", "spend 10 now", "spent 500", "200", "10", "paid 50", "₹20"
   let amount = null;
-  const amtMatch = text.match(/(?:(?:rs\.?|₹|inr)\s*(\d+(?:\.\d+)?))|(?:(\d+(?:\.\d+)?)\s*(?:rs|rupees|bucks)?\b)/i);
-  if (amtMatch) {
-    amount = Number(amtMatch[1] || amtMatch[2]);
+  const numMatch = text.match(/(?:(?:rs\.?|₹|inr)\s*(\d+(?:\.\d+)?))|(?:(?:spent|spend|paid|pay)\s*(\d+(?:\.\d+)?))|(?:\b(\d+(?:\.\d+)?)\s*(?:rs|rupees|bucks)?\b)/i);
+  if (numMatch) {
+    amount = Number(numMatch[1] || numMatch[2] || numMatch[3]);
   }
 
   if (!amount || isNaN(amount) || amount <= 0) {
@@ -731,50 +705,32 @@ function parseAIPrompt(rawText) {
   else if (/\b(net\s*banking)\b/i.test(text)) paymentMode = "Net Banking";
   else if (/\b(gpay|phonepe|paytm|upi)\b/i.test(text)) paymentMode = "UPI";
 
-  // 4. Infer Category and Clean Description
-  let matchedCategory = "Food & Drinks"; // Default fallback if tea/paid
+  // 4. Infer Category and Clean Description (if user specifies, otherwise simple "Expense")
+  let matchedCategory = "Other";
   let inferredNote = "";
 
-  // Check category keywords
-  let foundCategory = null;
   for (const cat of Object.keys(CATEGORIES)) {
     const keywords = CATEGORIES[cat].keywords;
     for (const kw of keywords) {
       const regex = new RegExp(`\\b${kw}\\b`, 'i');
       if (regex.test(text)) {
-        foundCategory = cat;
+        matchedCategory = cat;
         inferredNote = capitalizeFirst(kw);
         break;
       }
     }
-    if (foundCategory) break;
-  }
-
-  if (foundCategory) {
-    matchedCategory = foundCategory;
-  } else {
-    // If just "paid 50" or "spent 20"
-    if (/\b(tea|chai|coffee)\b/i.test(text)) {
-      matchedCategory = "Food & Drinks";
-      inferredNote = "Tea";
-    } else if (/\b(auto|cab|uber|ola)\b/i.test(text)) {
-      matchedCategory = "Transportation";
-      inferredNote = "Auto";
-    } else {
-      matchedCategory = "Other";
-      inferredNote = "Expense";
-    }
+    if (inferredNote) break;
   }
 
   // Derive human clean description from prompt
   let cleanDesc = rawText.trim()
-    .replace(/(?:spent|paid|for|in|morning|evening|night|today|yesterday|via|rupees|rs\.?|₹|bucks)\b/gi, '')
+    .replace(/(?:spent|spend|paid|pay|for|in|morning|evening|night|today|yesterday|via|rupees|rs\.?|₹|bucks|now)\b/gi, '')
     .replace(/\b\d+(\.\d+)?\b/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
   if (!cleanDesc || cleanDesc.length < 2) {
-    cleanDesc = inferredNote || "Daily Expense";
+    cleanDesc = inferredNote || "Expense";
   } else {
     cleanDesc = capitalizeFirst(cleanDesc);
   }
@@ -867,28 +823,15 @@ async function fetchFromGoogleSheets(showToasts = true) {
     const data = await res.json();
 
     if (data && data.status === "success") {
-      if (data.expenses && data.expenses.length > 0) {
-        // Cloud has records: sync with local
-        const existingMap = new Map();
-        expenses.forEach(e => existingMap.set(String(e.id), e));
-
-        data.expenses.forEach(cloudExp => {
-          cloudExp.date = normalizeDateStr(cloudExp.date);
-          cloudExp.month = normalizeMonthStr(cloudExp.month || cloudExp.date);
-          cloudExp.time = normalizeTimeStr(cloudExp.time);
-          existingMap.set(String(cloudExp.id), cloudExp);
-        });
-
-        expenses = Array.from(existingMap.values());
-        saveToLocalStorage();
-        renderApp();
-      } else if (expenses.length > 0) {
-        // Initial first-time setup: Push local initial data to populate the empty Google Sheet
-        postToGas({
-          action: "batchSync",
-          expenses: expenses
-        }).catch(() => {});
-      }
+      // Direct live cloud sync: exact state from Google Sheet across all devices
+      expenses = (data.expenses || []).map(cloudExp => ({
+        ...cloudExp,
+        date: normalizeDateStr(cloudExp.date),
+        month: normalizeMonthStr(cloudExp.month || cloudExp.date),
+        time: normalizeTimeStr(cloudExp.time)
+      }));
+      saveToLocalStorage();
+      renderApp();
 
       updateSyncBadge(true, "Sheets Synced");
       if (showToasts) showToast(`Synced with Google Sheet! ☁️`);
