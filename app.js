@@ -233,6 +233,16 @@ function updateKPIs() {
   kpiDailyAvg.textContent = `₹${avg.toLocaleString("en-IN")}`;
   kpiMonthLabel.textContent = formatMonthReadable(selectedMonth);
   kpiTxnCount.textContent = monthExpenses.length;
+
+  // Calculate today's total spending
+  const todayStr = getTodayDateStr();
+  const todayTotal = expenses
+    .filter(e => e.date === todayStr)
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const heroTodayEl = document.getElementById("heroTodayTotal");
+  if (heroTodayEl) {
+    heroTodayEl.textContent = `₹${todayTotal.toLocaleString("en-IN")}`;
+  }
   
   if (peakDate !== "None") {
     kpiPeakDay.textContent = formatShortDate(peakDate);
@@ -286,13 +296,10 @@ function renderDailyBreakdown() {
 
   if (filtered.length === 0) {
     dailyContainer.innerHTML = `
-      <div class="glass-panel empty-state">
-        <div class="empty-state-icon">🍵</div>
-        <h3>No expenses recorded for this selection</h3>
-        <p>Type in the AI prompt above like <em>"spent 20 for tea"</em> or click <em>Add Expense</em> to record your first spending.</p>
-        <button class="btn-icon btn-primary" onclick="openExpenseModalForAdd()" style="margin: 0 auto;">
-          <i data-lucide="plus"></i> Add New Expense
-        </button>
+      <div class="empty-box">
+        <div class="empty-icon">🍵</div>
+        <h3>No expenses yet</h3>
+        <p>Type <em>"spent 200 today"</em> or tap <em>+100</em> above to log your spendings.</p>
       </div>
     `;
     return;
@@ -318,39 +325,38 @@ function renderDailyBreakdown() {
     const isYesterday = dateStr === yesterdayStr;
     
     let badgeText = "";
-    if (isToday) badgeText = `<span class="day-badge today">Today</span>`;
-    else if (isYesterday) badgeText = `<span class="day-badge">Yesterday</span>`;
+    if (isToday) badgeText = `<span class="day-tag-badge today">Today</span>`;
+    else if (isYesterday) badgeText = `<span class="day-tag-badge">Yesterday</span>`;
 
     const dayCard = document.createElement("div");
-    dayCard.className = "glass-panel day-group-card";
+    dayCard.className = "day-card";
 
     let itemsHtml = dayItems.map(item => {
       const catInfo = CATEGORIES[item.category] || CATEGORIES["Other"];
       return `
-        <div class="expense-item" data-id="${item.id}">
-          <div class="item-left">
-            <div class="category-icon-avatar" style="background: ${catInfo.color}22; color: ${catInfo.color}; border: 1px solid ${catInfo.color}44;">
+        <div class="expense-row" data-id="${item.id}">
+          <div class="row-left">
+            <div class="row-icon" style="background: ${catInfo.color}22; color: ${catInfo.color};">
               ${catInfo.icon}
             </div>
-            <div class="item-info">
+            <div class="row-details">
               <h4>${escapeHtml(item.description)}</h4>
-              <div class="item-meta">
-                <span class="category-tag" style="background: ${catInfo.color}15; color: ${catInfo.color};">
-                  ${item.category}
-                </span>
-                <span class="payment-tag">${item.paymentMode || 'UPI'}</span>
+              <div class="row-meta">
+                <span>${item.category}</span>
+                <span>•</span>
+                <span>${item.paymentMode || 'UPI'}</span>
                 ${item.time ? `<span>• ${item.time}</span>` : ''}
-                ${item.source === 'AI Agent' ? `<span class="source-tag">🤖 AI</span>` : ''}
+                ${item.source === 'AI Agent' ? `<span class="ai-tag">AI</span>` : ''}
               </div>
             </div>
           </div>
-          <div class="item-right">
-            <div class="item-amount">₹${Number(item.amount).toLocaleString('en-IN')}</div>
-            <div class="item-actions">
-              <button class="action-btn" title="Edit" onclick="openExpenseModalForEdit('${item.id}')">
+          <div class="row-right">
+            <span class="row-amount">₹${Number(item.amount).toLocaleString('en-IN')}</span>
+            <div class="row-btns">
+              <button class="mini-btn" title="Edit" onclick="openExpenseModalForEdit('${item.id}')">
                 <i data-lucide="edit-2"></i>
               </button>
-              <button class="action-btn delete" title="Delete" onclick="deleteExpenseItem('${item.id}')">
+              <button class="mini-btn del" title="Delete" onclick="deleteExpenseItem('${item.id}')">
                 <i data-lucide="trash-2"></i>
               </button>
             </div>
@@ -360,16 +366,16 @@ function renderDailyBreakdown() {
     }).join("");
 
     dayCard.innerHTML = `
-      <div class="day-group-header">
-        <div class="day-date-title">
+      <div class="day-header">
+        <div class="day-title-box">
           ${badgeText}
           <span class="day-title-text">${formatFullDate(dateStr)}</span>
         </div>
-        <div class="day-total-badge">
+        <div class="day-sum-badge">
           Day Total: ₹${dayTotal.toLocaleString('en-IN')}
         </div>
       </div>
-      <div class="day-items-list">
+      <div class="day-items-group">
         ${itemsHtml}
       </div>
     `;
@@ -432,48 +438,53 @@ function renderMonthlyComparison() {
 
   // Update Comparison KPIs
   const trackedCount = monthSummaries.length;
-  document.getElementById("cmpMonthsCount").textContent = `${trackedCount} Month${trackedCount > 1 ? 's' : ''}`;
+  const cmpMonthsCountEl = document.getElementById("cmpMonthsCount");
+  if (cmpMonthsCountEl) cmpMonthsCountEl.textContent = `${trackedCount} Month${trackedCount > 1 ? 's' : ''}`;
   
   const overallTotal = monthSummaries.reduce((s, m) => s + m.total, 0);
   const overallAvg = trackedCount > 0 ? Math.round(overallTotal / trackedCount) : 0;
-  document.getElementById("cmpOverallAvg").textContent = `₹${overallAvg.toLocaleString('en-IN')}`;
+  const cmpOverallAvgEl = document.getElementById("cmpOverallAvg");
+  if (cmpOverallAvgEl) cmpOverallAvgEl.textContent = `₹${overallAvg.toLocaleString('en-IN')}`;
 
   let highestM = null;
   monthSummaries.forEach(m => {
     if (!highestM || m.total > highestM.total) highestM = m;
   });
   if (highestM) {
-    document.getElementById("cmpHighestMonth").textContent = formatMonthReadable(highestM.month);
-    document.getElementById("cmpHighestAmount").textContent = `₹${highestM.total.toLocaleString('en-IN')}`;
+    const highestMonthEl = document.getElementById("cmpHighestMonth");
+    const highestAmountEl = document.getElementById("cmpHighestAmount");
+    if (highestMonthEl) highestMonthEl.textContent = formatMonthReadable(highestM.month);
+    if (highestAmountEl) highestAmountEl.textContent = `₹${highestM.total.toLocaleString('en-IN')}`;
   }
 
   // Render Table (Newest first)
   const tbody = document.getElementById("comparisonTableBody");
-  tbody.innerHTML = "";
-  const reversedSummaries = monthSummaries.slice().reverse();
+  if (tbody) {
+    tbody.innerHTML = "";
+    const reversedSummaries = monthSummaries.slice().reverse();
 
-  reversedSummaries.forEach(m => {
-    const tr = document.createElement("tr");
-    
-    let momBadge = `<span style="color: var(--text-muted);">-</span>`;
-    if (m.momChange > 0) {
-      momBadge = `<span style="color: var(--danger); font-weight: 600;">+${m.momChange}% ↗</span>`;
-    } else if (m.momChange < 0) {
-      momBadge = `<span style="color: var(--success); font-weight: 600;">${m.momChange}% ↘</span>`;
-    }
+    reversedSummaries.forEach(m => {
+      const tr = document.createElement("tr");
+      
+      let momBadge = `<span style="color: var(--text-muted);">-</span>`;
+      if (m.momChange > 0) {
+        momBadge = `<span style="color: var(--danger); font-weight: 600;">+${m.momChange}% ↗</span>`;
+      } else if (m.momChange < 0) {
+        momBadge = `<span style="color: var(--success); font-weight: 600;">${m.momChange}% ↘</span>`;
+      }
 
-    const catIcon = CATEGORIES[m.topCat]?.icon || "📦";
+      const catIcon = CATEGORIES[m.topCat]?.icon || "📦";
 
-    tr.innerHTML = `
-      <td><strong>${formatMonthReadable(m.month)}</strong></td>
-      <td><strong>₹${m.total.toLocaleString('en-IN')}</strong></td>
-      <td>₹${m.avg.toLocaleString('en-IN')}/day</td>
-      <td>${m.count} txns</td>
-      <td>${m.topCat !== '-' ? `${catIcon} ${m.topCat}` : '-'}</td>
-      <td>${momBadge}</td>
-    `;
-    tbody.appendChild(tr);
-  });
+      tr.innerHTML = `
+        <td><strong>${formatMonthReadable(m.month)}</strong></td>
+        <td><strong>₹${m.total.toLocaleString('en-IN')}</strong></td>
+        <td>₹${m.avg.toLocaleString('en-IN')}/day</td>
+        <td>${m.count} txns</td>
+        <td>${momBadge}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
 
   // Render Charts
   renderComparisonCharts(monthSummaries);
@@ -484,107 +495,114 @@ function renderComparisonCharts(monthSummaries) {
   const totals = monthSummaries.map(m => m.total);
 
   // 1. Monthly Total Bar Chart
-  const ctxBar = document.getElementById("monthlyCompareChart").getContext("2d");
-  if (monthlyCompareChart) monthlyCompareChart.destroy();
+  const elMonthly = document.getElementById("monthlyCompareChart");
+  if (elMonthly) {
+    const ctxBar = elMonthly.getContext("2d");
+    if (monthlyCompareChart) monthlyCompareChart.destroy();
 
-  monthlyCompareChart = new Chart(ctxBar, {
-    type: "bar",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Total Expenses (₹)",
-        data: totals,
-        backgroundColor: "rgba(99, 102, 241, 0.7)",
-        borderColor: "#6366f1",
-        borderWidth: 2,
-        borderRadius: 8,
-        hoverBackgroundColor: "rgba(99, 102, 241, 0.9)"
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `Spent: ₹${ctx.raw.toLocaleString('en-IN')}`
-          }
-        }
+    monthlyCompareChart = new Chart(ctxBar, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Total Expenses (₹)",
+          data: totals,
+          backgroundColor: "rgba(99, 102, 241, 0.7)",
+          borderColor: "#6366f1",
+          borderWidth: 2,
+          borderRadius: 8,
+          hoverBackgroundColor: "rgba(99, 102, 241, 0.9)"
+        }]
       },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: { color: "rgba(255, 255, 255, 0.05)" },
-          ticks: {
-            color: "#94a3b8",
-            callback: (val) => `₹${val.toLocaleString('en-IN')}`
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `Spent: ₹${ctx.raw.toLocaleString('en-IN')}`
+            }
           }
         },
-        x: {
-          grid: { display: false },
-          ticks: { color: "#94a3b8" }
-        }
-      }
-    }
-  });
-
-  // 2. Stacked Category Compare Chart
-  const ctxCat = document.getElementById("categoryCompareChart").getContext("2d");
-  if (categoryCompareChart) categoryCompareChart.destroy();
-
-  const allCategoryNames = Object.keys(CATEGORIES);
-  const datasets = allCategoryNames.map(cat => {
-    return {
-      label: cat,
-      data: monthSummaries.map(m => m.catTotals[cat] || 0),
-      backgroundColor: CATEGORIES[cat].color,
-      borderRadius: 4
-    };
-  }).filter(ds => ds.data.some(v => v > 0)); // Only include categories with spend
-
-  categoryCompareChart = new Chart(ctxCat, {
-    type: "bar",
-    data: {
-      labels: labels,
-      datasets: datasets
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "top",
-          labels: { color: "#94a3b8", boxWidth: 12 }
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}`
-          }
-        }
-      },
-      scales: {
-        x: {
-          stacked: true,
-          grid: { display: false },
-          ticks: { color: "#94a3b8" }
-        },
-        y: {
-          stacked: true,
-          grid: { color: "rgba(255, 255, 255, 0.05)" },
-          ticks: {
-            color: "#94a3b8",
-            callback: (val) => `₹${val.toLocaleString('en-IN')}`
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+            ticks: {
+              color: "#94a3b8",
+              callback: (val) => `₹${val.toLocaleString('en-IN')}`
+            }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: "#94a3b8" }
           }
         }
       }
-    }
-  });
+    });
+  }
+
+  // 2. Stacked Category Compare Chart (if canvas exists)
+  const elCat = document.getElementById("categoryCompareChart");
+  if (elCat) {
+    const ctxCat = elCat.getContext("2d");
+    if (categoryCompareChart) categoryCompareChart.destroy();
+
+    const allCategoryNames = Object.keys(CATEGORIES);
+    const datasets = allCategoryNames.map(cat => {
+      return {
+        label: cat,
+        data: monthSummaries.map(m => m.catTotals[cat] || 0),
+        backgroundColor: CATEGORIES[cat].color,
+        borderRadius: 4
+      };
+    }).filter(ds => ds.data.some(v => v > 0));
+
+    categoryCompareChart = new Chart(ctxCat, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "top",
+            labels: { color: "#94a3b8", boxWidth: 12 }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: ₹${ctx.raw.toLocaleString('en-IN')}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            grid: { display: false },
+            ticks: { color: "#94a3b8" }
+          },
+          y: {
+            stacked: true,
+            grid: { color: "rgba(255, 255, 255, 0.05)" },
+            ticks: {
+              color: "#94a3b8",
+              callback: (val) => `₹${val.toLocaleString('en-IN')}`
+            }
+          }
+        }
+      }
+    });
+  }
 }
 
 // --- Analytics & Categories View ---
 function renderAnalytics() {
-  document.getElementById("donutMonthLabel").textContent = formatMonthReadable(selectedMonth);
+  const donutLabelEl = document.getElementById("donutMonthLabel");
+  if (donutLabelEl) donutLabelEl.textContent = formatMonthReadable(selectedMonth);
 
   const monthItems = expenses.filter(e => e.month === selectedMonth || (e.date && e.date.substring(0, 7) === selectedMonth));
   const totalSpend = monthItems.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
@@ -597,73 +615,78 @@ function renderAnalytics() {
   const sortedCats = Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]);
 
   // Donut Chart
-  const ctxDonut = document.getElementById("categoryDonutChart").getContext("2d");
-  if (categoryDonutChart) categoryDonutChart.destroy();
+  const elDonut = document.getElementById("categoryDonutChart");
+  if (elDonut) {
+    const ctxDonut = elDonut.getContext("2d");
+    if (categoryDonutChart) categoryDonutChart.destroy();
 
-  const donutLabels = sortedCats.map(c => `${CATEGORIES[c]?.icon || ''} ${c}`);
-  const donutData = sortedCats.map(c => catTotals[c]);
-  const donutColors = sortedCats.map(c => CATEGORIES[c]?.color || "#64748b");
+    const donutLabels = sortedCats.map(c => `${CATEGORIES[c]?.icon || ''} ${c}`);
+    const donutData = sortedCats.map(c => catTotals[c]);
+    const donutColors = sortedCats.map(c => CATEGORIES[c]?.color || "#64748b");
 
-  categoryDonutChart = new Chart(ctxDonut, {
-    type: "doughnut",
-    data: {
-      labels: donutLabels,
-      datasets: [{
-        data: donutData,
-        backgroundColor: donutColors,
-        borderWidth: 2,
-        borderColor: "rgba(17, 24, 39, 0.8)"
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: "right",
-          labels: { color: "#94a3b8", font: { family: "'Outfit', sans-serif" } }
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => {
-              const val = ctx.raw;
-              const pct = totalSpend > 0 ? Math.round((val / totalSpend) * 100) : 0;
-              return `${ctx.label}: ₹${val.toLocaleString('en-IN')} (${pct}%)`;
+    categoryDonutChart = new Chart(ctxDonut, {
+      type: "doughnut",
+      data: {
+        labels: donutLabels,
+        datasets: [{
+          data: donutData,
+          backgroundColor: donutColors,
+          borderWidth: 2,
+          borderColor: "rgba(17, 24, 39, 0.8)"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: "right",
+            labels: { color: "#94a3b8", font: { family: "'Outfit', sans-serif" } }
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const val = ctx.raw;
+                const pct = totalSpend > 0 ? Math.round((val / totalSpend) * 100) : 0;
+                return `${ctx.label}: ₹${val.toLocaleString('en-IN')} (${pct}%)`;
+              }
             }
           }
-        }
-      },
-      cutout: "65%"
-    }
-  });
+        },
+        cutout: "65%"
+      }
+    });
+  }
 
   // Progress Bars List
   const progressContainer = document.getElementById("categoryProgressContainer");
-  progressContainer.innerHTML = "";
+  if (progressContainer) {
+    progressContainer.innerHTML = "";
 
-  if (sortedCats.length === 0) {
-    progressContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No spending recorded for this month.</p>`;
-    return;
+    if (sortedCats.length === 0) {
+      progressContainer.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem;">No spending recorded for this month.</p>`;
+      return;
+    }
+
+    sortedCats.forEach(cat => {
+      const amt = catTotals[cat];
+      const pct = totalSpend > 0 ? ((amt / totalSpend) * 100).toFixed(1) : 0;
+      const catInfo = CATEGORIES[cat] || CATEGORIES["Other"];
+
+      const itemDiv = document.createElement("div");
+      itemDiv.className = "cat-progress-item";
+      itemDiv.innerHTML = `
+        <div class="cat-progress-header">
+          <span>${catInfo.icon} ${cat}</span>
+          <span>₹${amt.toLocaleString('en-IN')} <span style="color: var(--text-muted); font-size: 0.78rem;">(${pct}%)</span></span>
+        </div>
+        <div class="cat-progress-track">
+          <div class="cat-progress-bar" style="width: ${pct}%; background: ${catInfo.color};"></div>
+        </div>
+      `;
+      progressContainer.appendChild(itemDiv);
+    });
   }
-
-  sortedCats.forEach(cat => {
-    const amt = catTotals[cat];
-    const pct = totalSpend > 0 ? ((amt / totalSpend) * 100).toFixed(1) : 0;
-    const catInfo = CATEGORIES[cat] || CATEGORIES["Other"];
-
-    const itemDiv = document.createElement("div");
-    itemDiv.className = "cat-progress-item";
-    itemDiv.innerHTML = `
-      <div class="cat-progress-header">
-        <span>${catInfo.icon} ${cat}</span>
-        <span>₹${amt.toLocaleString('en-IN')} <span style="color: var(--text-muted); font-size: 0.78rem;">(${pct}%)</span></span>
-      </div>
-      <div class="cat-progress-track">
-        <div class="cat-progress-bar" style="width: ${pct}%; background: ${catInfo.color};"></div>
-      </div>
-    `;
-    progressContainer.appendChild(itemDiv);
-  });
 }
 
 // ========================================================
@@ -888,7 +911,7 @@ function setupEventListeners() {
   });
 
   // AI Quick Prompt Chips
-  document.querySelectorAll(".prompt-chip").forEach(chip => {
+  document.querySelectorAll(".quick-chip, .prompt-chip").forEach(chip => {
     chip.addEventListener("click", () => {
       const promptText = chip.getAttribute("data-prompt");
       const parsed = parseAIPrompt(promptText);
@@ -898,19 +921,23 @@ function setupEventListeners() {
     });
   });
 
-  // Navigation Tabs
-  document.querySelectorAll(".tab-btn").forEach(btn => {
+  // Navigation Tabs (Daily Spending / Monthly Comparison)
+  document.querySelectorAll(".segment-btn, .tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".segment-btn, .tab-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
 
       const targetTab = btn.getAttribute("data-tab");
       currentTab = targetTab;
 
-      document.querySelectorAll(".view-content").forEach(v => v.style.display = "none");
+      document.querySelectorAll(".view-content").forEach(v => {
+        v.style.display = "none";
+        v.classList.remove("active");
+      });
       const activeEl = document.getElementById(targetTab);
       if (activeEl) {
-        activeEl.style.display = (targetTab === "analyticsView") ? "grid" : "flex";
+        activeEl.style.display = "block";
+        activeEl.classList.add("active");
       }
 
       renderApp();
@@ -1020,12 +1047,31 @@ function setupEventListeners() {
     });
   }
 
-  // Theme Selector
-  themeSelect.addEventListener("change", (e) => {
-    const theme = e.target.value;
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("expense_theme", theme);
-  });
+  // Theme Toggle Button (Mobile fast-tap switch)
+  const themeToggleBtn = document.getElementById("themeToggleBtn");
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener("click", () => {
+      const themes = ["default", "alt-dark", "light"];
+      const current = document.documentElement.getAttribute("data-theme") || "default";
+      const nextIndex = (themes.indexOf(current) + 1) % themes.length;
+      const next = themes[nextIndex];
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("expense_theme", next);
+      if (themeSelect) themeSelect.value = next;
+      updateThemeIcon(next);
+      showToast(`Switched theme to ${next === 'alt-dark' ? 'OLED' : capitalizeFirst(next)}`);
+    });
+  }
+
+  // Theme Selector (Fallback)
+  if (themeSelect) {
+    themeSelect.addEventListener("change", (e) => {
+      const theme = e.target.value;
+      document.documentElement.setAttribute("data-theme", theme);
+      localStorage.setItem("expense_theme", theme);
+      updateThemeIcon(theme);
+    });
+  }
 }
 
 // --- Modal Helpers ---
@@ -1154,7 +1200,21 @@ function normalizeTimeStr(t) {
 function initTheme() {
   const saved = localStorage.getItem("expense_theme") || "default";
   document.documentElement.setAttribute("data-theme", saved);
-  themeSelect.value = saved;
+  if (themeSelect) themeSelect.value = saved;
+  updateThemeIcon(saved);
+}
+
+function updateThemeIcon(theme) {
+  const iconEl = document.getElementById("themeIcon");
+  if (!iconEl) return;
+  if (theme === "light") {
+    iconEl.setAttribute("data-lucide", "sun");
+  } else if (theme === "alt-dark") {
+    iconEl.setAttribute("data-lucide", "zap");
+  } else {
+    iconEl.setAttribute("data-lucide", "moon");
+  }
+  lucide.createIcons();
 }
 
 function showToast(msg, type = "success") {
