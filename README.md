@@ -52,7 +52,7 @@ A sleek, modern, glassmorphic Expense Tracker built specifically for daily perso
 ## 🚀 Google Sheet Cloud Connection (Connected)
 
 Your **"Expense tracker"** Google Sheet is already hardcoded and connected:
-- **Web App URL**: `https://script.google.com/macros/s/AKfycbyT64Ehwsk_hev8n_-G6fjX2Bt7NyFUTWc81BALw5phR14f2tkd_ZksyIANOmVqOoE/exec`
+- **Web App URL**: `https://script.google.com/macros/s/AKfycbxakJAxaUGLaCedfm9us4Oue1eThaesh9C_i28Yrd31sXAjpMCYrA-U1F9i4A-CiwdD/exec`
 
 No setup or copy-pasting is required inside the app. Clicking the **Sheets Synced** badge in the header performs an instant manual refresh anytime.
 

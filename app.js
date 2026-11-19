@@ -26,7 +26,7 @@ const INITIAL_SAMPLE_DATA = [];
 let expenses = [];
 let selectedMonth = "2026-11";
 let currentTab = "dailyView";
-const EXPENSE_GAS_URL = "https://script.google.com/macros/s/AKfycbyT64Ehwsk_hev8n_-G6fjX2Bt7NyFUTWc81BALw5phR14f2tkd_ZksyIANOmVqOoE/exec";
+const EXPENSE_GAS_URL = "https://script.google.com/macros/s/AKfycbxakJAxaUGLaCedfm9us4Oue1eThaesh9C_i28Yrd31sXAjpMCYrA-U1F9i4A-CiwdD/exec";
 
 // Chart instances
 let monthlyCompareChart = null;
